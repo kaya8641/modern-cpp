@@ -73,45 +73,70 @@ pipeline {
                 }
             }
         }
+		
+	stage('Sanitizer Build') {
+    when {
+        branch 'main'
+    }
 
-        stage('Sanitizer Build') {
-            steps {
-                dir('market-data-service') {
-                    sh '''
-                        cmake --preset asan
-                        cmake --build --preset asan
-                        ctest --preset asan
-                    '''
-                }
-            }
-        }
-        
-        stage('Approval Gate') {
-            steps {
-                input 'CI passed. Approve Docker build?'
-            }
-        }
-        stage('Docker Build') {
-            steps {
-                dir('market-data-service') {
-                    sh '''
-                    docker build -t $FULL_IMAGE .
-                    '''
-                }
-            }
-        }
-       stage('Security Scan - Trivy') {
-        steps {
+    steps {
+        dir('market-data-service') {
             sh '''
-                trivy image \
-                  --severity HIGH,CRITICAL \
-                  --exit-code 0 \
-                  --no-progress \
-                  $FULL_IMAGE
-                 '''
+                cmake --preset asan
+                cmake --build --preset asan
+                ctest --preset asan
+            '''
+        }
     }
 }
-        stage('Push Image to Private Registry') {
+        
+stage('Approval Gate') {
+    when {
+        branch 'main'
+    }
+
+    steps {
+        input 'CI passed. Approve Docker build?'
+    }
+}
+		
+		
+		
+stage('Docker Build') {
+    when {
+        branch 'main'
+    }
+
+    steps {
+        dir('market-data-service') {
+            sh '''
+                docker build -t $FULL_IMAGE .
+            '''
+        }
+    }
+}
+
+stage('Security Scan - Trivy') {
+    when {
+        branch 'main'
+    }
+
+    steps {
+        sh '''
+            trivy image \
+              --severity HIGH,CRITICAL \
+              --exit-code 0 \
+              --no-progress \
+              $FULL_IMAGE
+        '''
+    }
+}
+
+stage('Push Image to Private Registry') {
+    when {
+        branch 'main'
+    }
+
     steps {
         sh '''
             docker push $FULL_IMAGE
